@@ -39,10 +39,39 @@ jobs:
           echo "✅ GOST 已启动，测试连通性..."
           curl -s -x http://127.0.0.1:8080 https://api.ipify.org | sed 's/\.[0-9]*$/.**/' && echo
 
-      - name: 🔍 连通性测试
+      - name: 🔍 curl 直接测试 StopSession
+        env:
+          SEEDLOAF_ACCOUNT: ${{ secrets.SEEDLOAF_ACCOUNT }}
         run: |
-          echo "测试 api.seedloaf.com 连通性..."
-          curl -v -o /dev/null https://api.seedloaf.com 2>&1 | head -30
+          EMAIL=$(echo "$SEEDLOAF_ACCOUNT" | cut -d',' -f2)
+          PASSWORD=$(echo "$SEEDLOAF_ACCOUNT" | cut -d',' -f3)
+          echo "📡 登录获取 token..."
+          LOGIN=$(curl -s -X POST \
+            'https://clerk.seedloaf.com/v1/client/sign_ins?__clerk_api_version=2025-11-10' \
+            -H 'content-type: application/x-www-form-urlencoded' \
+            -H 'origin: https://seedloaf.com' \
+            -c /tmp/clerk_cookies.txt \
+            --data-urlencode "identifier=$EMAIL" \
+            --data-urlencode "password=$PASSWORD")
+          SESSION_ID=$(echo "$LOGIN" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['response']['created_session_id'])")
+          echo "✅ Session ID: ${SESSION_ID:0:20}..."
+          echo "📡 Touch 获取 token..."
+          TOUCH=$(curl -s -X POST \
+            "https://clerk.seedloaf.com/v1/client/sessions/${SESSION_ID}/touch?__clerk_api_version=2025-11-10" \
+            -H 'content-type: application/x-www-form-urlencoded' \
+            -H 'origin: https://seedloaf.com' \
+            -b /tmp/clerk_cookies.txt \
+            -d 'active_organization_id=&intent=focus')
+          TOKEN=$(echo "$TOUCH" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['response']['last_active_token']['jwt'])")
+          echo "✅ Token 长度: ${#TOKEN}"
+          echo "📡 调用 StopSession..."
+          curl -s -X POST \
+            'https://api.seedloaf.com/connect/worlds.v1.SessionService/StopSession' \
+            -H "authorization: Bearer $TOKEN" \
+            -H 'connect-protocol-version: 1' \
+            -H 'content-type: application/json' \
+            -d '{"id":"8d0b4344-a4d3-4e00-837f-cd809609905c"}' \
+            -w "\nHTTP状态: %{http_code}\n"
 
       - name: 🔴 关闭服务器
         env:
