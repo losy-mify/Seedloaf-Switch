@@ -2,6 +2,8 @@ name: Seedloaf-Stop
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 15 * * *"  # 北京时间 23:00
 
 jobs:
   stop:
@@ -36,6 +38,11 @@ jobs:
           sleep 3
           echo "✅ GOST 已启动，测试连通性..."
           curl -s -x http://127.0.0.1:8080 https://api.ipify.org | sed 's/\.[0-9]*$/.**/' && echo
+
+      - name: 🔍 连通性测试
+        run: |
+          echo "测试 api.seedloaf.com 连通性..."
+          curl -v -o /dev/null https://api.seedloaf.com 2>&1 | head -30
 
       - name: 🔴 关闭服务器
         env:
