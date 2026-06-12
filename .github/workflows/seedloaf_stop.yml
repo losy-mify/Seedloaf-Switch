@@ -2,8 +2,6 @@ name: Seedloaf-Stop
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 15 * * *"  # 北京时间 23:00
 
 jobs:
   stop:
